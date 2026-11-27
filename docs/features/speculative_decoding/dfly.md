@@ -85,8 +85,11 @@ vllm serve /path/to/DeepSeek-V4.1-Flash-1017 \
     --speculative-config '{"method":"dfly","model":"/path/to/DS-V4.1-Flash-DFly2-B6","num_speculative_tokens":5,"draft_sample_method":"probabilistic"}'
 ```
 
-Supported NVIDIA architectures are Hopper (SM90) and Blackwell datacenter
-(SM100 family, including SM103). BF16 specifies computation; native MXFP4
+Supported NVIDIA architectures are Hopper (SM90), Blackwell datacenter
+(SM100 family, including SM103). Capability 12 (for example DGX Spark) is
+experimental and not yet validated on hardware: it has no FlashMLA, so the
+draft's sparse attention over its scratch context runs in PyTorch there while
+the target uses its SM120 backend. BF16 specifies computation; native MXFP4
 expert weights remain quantized. The draft reads the target's `fp8_ds_mla`
 cache and uses BF16 dense weights and shared embedding/LM head weights.
 The target and draft TP sizes must match within each engine. DP, PP, and both

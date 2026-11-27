@@ -40,6 +40,7 @@ from vllm.utils.math_utils import next_power_of_2, round_up
 from vllm.v1.attention.ops.flashmla import flash_mla_sparse_fwd
 
 from .model import DeepseekV4DecoderLayer
+from .ops.dfly_torch import dfly_sparse_attention_torch
 
 
 class DFlyQuantConfig(DeepseekV4FP8Config):
@@ -83,6 +84,19 @@ class DFlyContext(nn.Module):
     ) -> torch.Tensor:
         width = self.query_width if block else 1
         batch, heads, dim = q.shape[0] // width, q.shape[1], q.shape[2]
+        if current_platform.is_device_capability_family(120):
+            # No FlashMLA on capability 12 (DGX Spark); see ops/dfly_torch.py.
+            keys = self.indices[:batch]
+            if not block:
+                keys = keys[:, : self.context_width]
+            return dfly_sparse_attention_torch(
+                q,
+                self.kv[:batch].view(-1, dim),
+                keys,
+                dim**-0.5,
+                sink,
+                width,
+            )
         min_heads = 8 if current_platform.is_device_capability_family(90) else 64
         padded_heads = max(min_heads, next_power_of_2(heads))
         if heads != padded_heads:
